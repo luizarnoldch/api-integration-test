@@ -61,7 +61,7 @@ Resources:
       Runtime: provided.al2
       Policies:
         - AWSLambdaBasicExecutionRole
-Output:
+Outputs:
   HelloWorldFunction:
     Description: ARN of hello world function
     Value: !Ref HelloWorldFunction
