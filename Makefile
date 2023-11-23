@@ -1,5 +1,5 @@
 TEMPLATE_FILE := templates/main.yml
-STACK_NAME := crud-arnold-test
+STACK_NAME := api-integration-test
 
 init:
 	go mod init main
