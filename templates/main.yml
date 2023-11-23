@@ -39,7 +39,7 @@ Resources:
         IntegrationHttpMethod: POST # (always POST)
         Type: AWS_PROXY
         Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${HelloWorldFunction.Arn}/invocations
-        
+
 # Lambda Permissions for API Gateway
   HelloWorldFunctionFunctionInvokePermission:
     Type: AWS::Lambda::Permission
@@ -61,3 +61,16 @@ Resources:
       Runtime: provided.al2
       Policies:
         - AWSLambdaBasicExecutionRole
+Output:
+  HelloWorldFunction:
+    Description: ARN of hello world function
+    Value: !Ref HelloWorldFunction
+  MainApiGatewayLogicalID:
+    Description: API GATEWAY ID
+    Value: !Ref MainApiGatewayLogicalID
+  MainApiGatewayRootResourceID:
+    Description: API GATEWAY ROOT RESOURCE
+    Value: !Ref MainApiGatewayRootResourceID
+  LambdaRequestAuthorizerID:
+    Description: LAMBDA REQUEST AUTHORIZER
+    Value: !Ref LambdaRequestAuthorizerID
