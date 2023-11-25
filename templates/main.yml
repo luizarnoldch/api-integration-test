@@ -1,76 +1,63 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Test API Lambda
+Description: Overview-connectDashboard
 
 Parameters:
   ProjectName:
     Type: String
-    Description: Smaily Basic Project
-    Default: Test-API
-  MainApiGatewayLogicalID:
+    Default: MvpConnectInstances
+    Description: A prefix that will be applied to all resources in the stack. Required.
+  CrossAccountTableNameParameter:
+    Type: String
+    Default: itsmorse-mc-infrastructure-CrossAccountTable
+    Description: The table that contains data about cross account
+  DefaultRegionParameter:
+    Type: String
+    Default: us-east-1
+    Description: The default region of AWS-ACCOUNT of Morse
+  CompanyConnectInstancesParameter:
     Type: 'AWS::SSM::Parameter::Value<String>'
-    Default: /itsmorse-mvp-login-authorizer/apigateway/MainApiGateway/LogicalID
-  MainApiGatewayRootResourceID:
+    Default: /itsmorse-mc-infrastructure/dynamodb/CompanyConnectInstances/TableName
+  CrossAccountParameter:
     Type: 'AWS::SSM::Parameter::Value<String>'
-    Default: /itsmorse-mvp-login-authorizer/apigateway/MainApiGateway/RootResourceID
-  LambdaRequestAuthorizerID:
+    Default: /itsmorse-mc-infrastructure/dynamodb/CrossAccountTable/TableName
+  CrossAccountStream:
     Type: 'AWS::SSM::Parameter::Value<String>'
-    Default: /itsmorse-mvp-login-authorizer/apigateway/LambdaRequestAuthorizer/LogicalID
+    Default: /itsmorse-mc-infrastructure/dynamodb/CrossAccountTable/StreamArn
+
 Resources:
-# Resource Paths
-  HelloWorldResource:
-    Type: AWS::ApiGateway::Resource
-    Properties:
-      RestApiId: !Ref MainApiGatewayLogicalID
-      ParentId: !Ref MainApiGatewayRootResourceID
-      PathPart: helloworld
-# Methods for Resources
-  HelloWorlGetMethod:
-    Type: AWS::ApiGateway::Method
-    Properties:
-      RestApiId: !Ref MainApiGatewayLogicalID
-      ResourceId: !Ref HelloWorldResource
-      HttpMethod: GET
-      RequestParameters:
-        method.request.path.accountId: true 
-      AuthorizationType: CUSTOM
-      AuthorizerId: !Ref LambdaRequestAuthorizerID
-      Integration:
-        IntegrationHttpMethod: POST # (always POST)
-        Type: AWS_PROXY
-        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${HelloWorldFunction.Arn}/invocations
-
-# Lambda Permissions for API Gateway
-  HelloWorldFunctionFunctionInvokePermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      Action: lambda:InvokeFunction
-      FunctionName: !GetAtt HelloWorldFunction.Arn
-      Principal: apigateway.amazonaws.com
-      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${MainApiGatewayLogicalID}/*/*/*
-
-# Lambdas
-  HelloWorldFunction:
+  InjectionInstancesFunction:
     Type: AWS::Serverless::Function
-    Metadata:
-      BuildMethod: go1.x
     Properties:
-      CodeUri: ../bin/hello.zip
-      FunctionName: !Sub "${ProjectName}-hello"
+      FunctionName: !Sub "${ProjectName}-InjectionInstances"
+      CodeUri: injection-instances/injection-instances.zip
       Handler: bootstrap
       Runtime: provided.al2
+      Timeout: 900
+      MemorySize: 1024
+      Architectures:
+        - x86_64
       Policies:
         - AWSLambdaBasicExecutionRole
+        - DynamoDBStreamReadPolicy: 
+            TableName: !Ref CrossAccountParameter
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CrossAccountParameter
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CompanyConnectInstancesParameter
+      Events:
+        DynamoDBEvent:
+          Type: DynamoDB
+          Properties:
+            Stream: !Ref CrossAccountStream
+            StartingPosition: LATEST
+            BatchSize: 1
+      Environment:
+        Variables:
+          DEFAULT_REGION: !Ref DefaultRegionParameter
+          TABLE_NAME: !Ref CompanyConnectInstancesParameter
+
 Outputs:
-  HelloWorldFunction:
-    Description: ARN of hello world function
-    Value: !Ref HelloWorldFunction
-  MainApiGatewayLogicalID:
-    Description: API GATEWAY ID
-    Value: !Ref MainApiGatewayLogicalID
-  MainApiGatewayRootResourceID:
-    Description: API GATEWAY ROOT RESOURCE
-    Value: !Ref MainApiGatewayRootResourceID
-  LambdaRequestAuthorizerID:
-    Description: LAMBDA REQUEST AUTHORIZER
-    Value: !Ref LambdaRequestAuthorizerID
+  DashboardInjectionInstancesFunction:
+    Description: "Lambda Function ARN for InjectionInstances"
+    Value: !GetAtt InjectionInstancesFunction.Arn

@@ -1,0 +1,76 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Test API Lambda
+
+Parameters:
+  ProjectName:
+    Type: String
+    Description: Smaily Basic Project
+    Default: Test-API
+  MainApiGatewayLogicalID:
+    Type: 'AWS::SSM::Parameter::Value<String>'
+    Default: /itsmorse-mvp-login-authorizer/apigateway/MainApiGateway/LogicalID
+  MainApiGatewayRootResourceID:
+    Type: 'AWS::SSM::Parameter::Value<String>'
+    Default: /itsmorse-mvp-login-authorizer/apigateway/MainApiGateway/RootResourceID
+  LambdaRequestAuthorizerID:
+    Type: 'AWS::SSM::Parameter::Value<String>'
+    Default: /itsmorse-mvp-login-authorizer/apigateway/LambdaRequestAuthorizer/LogicalID
+Resources:
+# Resource Paths
+  HelloWorldResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref MainApiGatewayLogicalID
+      ParentId: !Ref MainApiGatewayRootResourceID
+      PathPart: helloworld
+# Methods for Resources
+  HelloWorlGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref MainApiGatewayLogicalID
+      ResourceId: !Ref HelloWorldResource
+      HttpMethod: GET
+      RequestParameters:
+        method.request.path.accountId: true 
+      AuthorizationType: CUSTOM
+      AuthorizerId: !Ref LambdaRequestAuthorizerID
+      Integration:
+        IntegrationHttpMethod: POST # (always POST)
+        Type: AWS_PROXY
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${HelloWorldFunction.Arn}/invocations
+
+# Lambda Permissions for API Gateway
+  HelloWorldFunctionFunctionInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt HelloWorldFunction.Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${MainApiGatewayLogicalID}/*/*/*
+
+# Lambdas
+  HelloWorldFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: go1.x
+    Properties:
+      CodeUri: ../bin/hello.zip
+      FunctionName: !Sub "${ProjectName}-hello"
+      Handler: bootstrap
+      Runtime: provided.al2
+      Policies:
+        - AWSLambdaBasicExecutionRole
+Outputs:
+  HelloWorldFunction:
+    Description: ARN of hello world function
+    Value: !Ref HelloWorldFunction
+  MainApiGatewayLogicalID:
+    Description: API GATEWAY ID
+    Value: !Ref MainApiGatewayLogicalID
+  MainApiGatewayRootResourceID:
+    Description: API GATEWAY ROOT RESOURCE
+    Value: !Ref MainApiGatewayRootResourceID
+  LambdaRequestAuthorizerID:
+    Description: LAMBDA REQUEST AUTHORIZER
+    Value: !Ref LambdaRequestAuthorizerID
